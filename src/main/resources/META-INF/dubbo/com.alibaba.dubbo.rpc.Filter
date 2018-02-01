@@ -1,0 +1,2 @@
+dubboConsumerTracingFilter=com.jcfc.microservice.tracer.dubbo.DubboConsumerTracingFilter
+dubboProviderTracingFilter=com.jcfc.microservice.tracer.dubbo.DubboProviderTracingFilter
