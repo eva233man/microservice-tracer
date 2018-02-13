@@ -45,7 +45,6 @@ final class AopTracingHandler {
             span.tag("args", StringUtils.toArgumentString(joinPoint.getArgs()));
             span.tag("url", joinPoint.toString());
 
-            span.annotate(SystemClock.now(), TracerManager.ANNO_CS);
         }
         //设置远程服务端地址
         Endpoint.Builder remoteEndpoint = Endpoint.newBuilder()
@@ -88,7 +87,6 @@ final class AopTracingHandler {
                 span.tag("invoke-error", error.getMessage());
             }
             span.tag("result", JSON.toJSONString(object));
-            span.annotate(SystemClock.now(), TracerManager.ANNO_CR);
         } finally {
             span.finish();
         }

@@ -74,10 +74,6 @@ final class DubboTraingHandler {
                 span.tag("args", StringUtils.toArgumentString(invocation.getArguments()));
                 span.tag("url", RpcContext.getContext().getUrl().toFullString());
 
-                span.annotate(SystemClock.now(), TracerManager.ANNO_CS);
-            }
-            else {
-                span.annotate(SystemClock.now(), TracerManager.ANNO_SR);
             }
         }
         //设置远程服务端地址
@@ -133,16 +129,12 @@ final class DubboTraingHandler {
                 span.tag("invoke-error", error.getMessage());
             }
             if(kind==Span.Kind.CONSUMER || kind== Span.Kind.CLIENT) {
-                for (String key : result.getAttachments().keySet()) {
-                    span.tag("result-" + key, result.getAttachment(key));
-                }
+//                for (String key : result.getAttachments().keySet()) {
+//                    span.tag("result-" + key, result.getAttachment(key));
+//                }
                 if(result.getValue()!=null) {
                     span.tag("result", result.getValue().toString());
                 }
-                span.annotate(SystemClock.now(), TracerManager.ANNO_CR);
-            }
-            else {
-                span.annotate(SystemClock.now(), TracerManager.ANNO_SS);
             }
         } finally {
             span.finish();

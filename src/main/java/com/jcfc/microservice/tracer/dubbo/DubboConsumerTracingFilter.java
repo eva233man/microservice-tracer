@@ -28,7 +28,7 @@ public class DubboConsumerTracingFilter implements Filter {
         extractor = tracing.propagation().extractor(DubboTraingHandler.GETTER);
         injector = tracing.propagation().injector(DubboTraingHandler.SETTER);
         tracer = tracing.tracer();
-        handler = new DubboTraingHandler(tracer, Span.Kind.CONSUMER);
+        handler = new DubboTraingHandler(tracer, Span.Kind.CLIENT);
     }
 
     @Override
