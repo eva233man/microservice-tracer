@@ -35,7 +35,7 @@ public class AopTracingFilter {
      * @throws Throwable
      */
     public Object around(ProceedingJoinPoint joinPoint) throws Throwable {
-        Span aopSpan = handler.handleReceive(joinPoint);
+        Span aopSpan = handler.handle(joinPoint);
 
         Throwable error = null;
         Object object = null;

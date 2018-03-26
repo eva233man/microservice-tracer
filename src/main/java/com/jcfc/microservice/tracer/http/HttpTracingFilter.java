@@ -77,14 +77,16 @@ public class HttpTracingFilter implements Filter {
         Span span = handler.handleReceive(extractor, httpRequest);
         Throwable error = null;
         try (Tracer.SpanInScope ws = tracer.withSpanInScope(span)) {
-            span.tag("localAddr" , request.getLocalAddr());
-            span.tag("localPort" , Integer.toString(request.getLocalPort()));
-            span.tag("remoteAddr" , request.getRemoteAddr());
-            span.tag("remotePort" , Integer.toString(request.getRemotePort()));
+            span.tag("http.url" , request.getLocalAddr());
+            span.tag("http.port" , Integer.toString(request.getLocalPort()));
+            span.tag("peer.address" , request.getRemoteAddr());
+            span.tag("peer.port" , Integer.toString(request.getRemotePort()));
+            span.tag("component", "http");
 
             chain.doFilter(httpRequest, httpResponse); // any downstream filters see Tracer.currentSpan
         } catch (IOException | ServletException | RuntimeException | Error e) {
             error = e;
+            span.tag("error", "true");
             throw e;
         } finally {
             if (servlet.isAsync(httpRequest)) { // we don't have the actual response, handle later

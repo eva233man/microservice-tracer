@@ -7,6 +7,7 @@ import brave.propagation.SamplingFlags;
 import brave.propagation.TraceContext;
 import com.alibaba.fastjson.JSON;
 import com.jcfc.microservice.tracer.TracerManager;
+import com.jcfc.microservice.tracer.utils.NetworkUtils;
 import com.jcfc.microservice.tracer.utils.StringUtils;
 import com.jcfc.microservice.tracer.utils.SystemClock;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -30,7 +31,7 @@ final class AopTracingHandler {
     }
 
 
-    <I> Span handleReceive(ProceedingJoinPoint joinPoint) {
+    <I> Span handle(ProceedingJoinPoint joinPoint) {
         Span span = nextSpan();
         if (span.isNoop()) {
             return span;
@@ -43,11 +44,12 @@ final class AopTracingHandler {
         // Ensure user-code can read the current trace context
         try (Tracer.SpanInScope ws = tracer.withSpanInScope(span)) {
             span.tag("args", StringUtils.toArgumentString(joinPoint.getArgs()));
-            span.tag("url", joinPoint.toString());
-
+            span.tag("aop.url", joinPoint.toString());
+            span.tag("component", "aop");
         }
         //设置远程服务端地址
         Endpoint.Builder remoteEndpoint = Endpoint.newBuilder()
+                .ip(NetworkUtils.getLocalHost())
                 .serviceName(joinPoint.getTarget().getClass().getSimpleName());
         span.remoteEndpoint(remoteEndpoint.build());
 
@@ -84,6 +86,7 @@ final class AopTracingHandler {
         // Ensure user-code can read the current trace context
         try (Tracer.SpanInScope ws = tracer.withSpanInScope(span)) {
             if (error != null) {
+                span.tag("error", "true");
                 span.tag("invoke-error", error.getMessage());
             }
             span.tag("result", JSON.toJSONString(object));

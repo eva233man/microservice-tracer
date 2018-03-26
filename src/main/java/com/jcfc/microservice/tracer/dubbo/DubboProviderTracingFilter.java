@@ -21,20 +21,21 @@ public class DubboProviderTracingFilter implements Filter {
     private final Tracer tracer;
     private final TraceContext.Extractor<Invocation> extractor;
     private final TraceContext.Injector<Invocation> injector;
-    private final DubboTraingHandler handler;
+    private final DubboTracingHandler handler;
 
     public DubboProviderTracingFilter(){
         Tracing tracing = TracerManager.getTracing();
-        extractor = tracing.propagation().extractor(DubboTraingHandler.GETTER);
-        injector = tracing.propagation().injector(DubboTraingHandler.SETTER);
+        extractor = tracing.propagation().extractor(DubboTracingHandler.GETTER);
+        injector = tracing.propagation().injector(DubboTracingHandler.SETTER);
         tracer = tracing.tracer();
-        handler = new DubboTraingHandler(tracer, Span.Kind.SERVER);
+        handler = new DubboTracingHandler(tracer, Span.Kind.SERVER);
     }
 
     @Override
     public Result invoke(Invoker<?> invoker, Invocation invocation) throws RpcException {
+        if (tracer == null) return invoker.invoke(invocation);
 
-        Span dubboSpan = handler.handleReceive(extractor, injector, invocation, invocation);
+        Span dubboSpan = handler.handle(extractor, injector, invocation, invocation);
 
         Throwable error = null;
         Result result = null;

@@ -35,7 +35,7 @@ class TracerProperties {
 					in = TracerProperties.class.getClassLoader().getResourceAsStream(DEFAULT_CONFIGURATION_FILE);
 					props.load(in);
 		} catch (FileNotFoundException e) {
-			logger.error("jdbc.properties文件未找到");
+			logger.error("tracer.properties文件未找到");
 		} catch (IOException e) {
 			logger.error("出现IOException");
 		} finally {
@@ -44,7 +44,7 @@ class TracerProperties {
 					in.close();
 				}
 			} catch (IOException e) {
-				logger.error("jdbc.properties文件流关闭出现异常");
+				logger.error("tracer.properties文件流关闭出现异常");
 			}
 		}
 		logger.info("加载tracer.properties文件内容完成...........");

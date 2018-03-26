@@ -29,11 +29,6 @@ import java.util.concurrent.TimeUnit;
  */
 public class TracerManager {
 
-	public static final String ANNO_CS = "cs";
-	public static final String ANNO_CR = "cr";
-	public static final String ANNO_SR = "sr";
-	public static final String ANNO_SS = "ss";
-
 	static private final String ZIPKIN_SENDER_RABBITMQ_ADDRESSES = "zipkin.sender.rabbitmq.addresses";
 	static private final String ZIPKIN_SENDER_RABBITMQ_USERNAME = "zipkin.sender.rabbitmq.username";
 	static private final String ZIPKIN_SENDER_RABBITMQ_PASSWORD = "zipkin.sender.rabbitmq.password";
