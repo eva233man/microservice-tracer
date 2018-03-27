@@ -55,7 +55,7 @@ public class HttpRequestTracingHandler {
         return tracer;
     }
 
-    public <I> Span handle(URLConnection connection, String args) {
+    public Span handle(URLConnection connection, String args) {
         final Span span = nextSpan(extractor.extract(connection));
         injector.inject(span.context(), connection);
 
@@ -111,7 +111,7 @@ public class HttpRequestTracingHandler {
         try (Tracer.SpanInScope ws = tracer.withSpanInScope(span)) {
             if (error != null) {
                 span.tag("error", "true");
-                span.tag("invoke-error", error.getMessage());
+                span.tag("httprequest-error", error.getMessage());
             }
             span.tag("result", JSON.toJSONString(object));
         } finally {

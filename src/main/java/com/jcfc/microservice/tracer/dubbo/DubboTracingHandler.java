@@ -8,10 +8,6 @@ import brave.propagation.TraceContextOrSamplingFlags;
 import com.alibaba.dubbo.common.utils.StringUtils;
 import com.alibaba.dubbo.rpc.Invocation;
 import com.alibaba.dubbo.rpc.Result;
-import com.alibaba.dubbo.rpc.RpcContext;
-import com.jcfc.microservice.tracer.TracerManager;
-import com.jcfc.microservice.tracer.utils.NetworkUtils;
-import com.jcfc.microservice.tracer.utils.SystemClock;
 import zipkin2.Endpoint;
 
 /**
@@ -25,11 +21,13 @@ final class DubboTracingHandler {
 
     static final Propagation.Getter<Invocation, String> GETTER =
             new Propagation.Getter<Invocation, String>() {
-                @Override public String get(Invocation carrier, String key) {
+                @Override
+                public String get(Invocation carrier, String key) {
                     return carrier.getAttachment(key);
                 }
 
-                @Override public String toString() {
+                @Override
+                public String toString() {
                     return "Invocation::getAttachment";
                 }
             };
@@ -41,7 +39,8 @@ final class DubboTracingHandler {
                     carrier.getAttachments().put(key, value);
                 }
 
-                @Override public String toString() {
+                @Override
+                public String toString() {
                     return "Invocation::getAttachment::put";
                 }
             };
@@ -49,7 +48,7 @@ final class DubboTracingHandler {
     private final Tracer tracer;
     private final Span.Kind kind;
 
-    DubboTracingHandler(Tracer tracer, Span.Kind kind){
+    DubboTracingHandler(Tracer tracer, Span.Kind kind) {
         this.tracer = tracer;
         this.kind = kind;
     }
@@ -57,13 +56,13 @@ final class DubboTracingHandler {
 
     <I> Span handle(TraceContext.Extractor<I> extractor, TraceContext.Injector<I> injector, I carrier, Invocation invocation) {
         final Span span = nextSpan(extractor.extract(carrier));
-        if(kind==Span.Kind.CONSUMER || kind== Span.Kind.CLIENT) {
+        if (kind == Span.Kind.CLIENT) {
             // 将上下文信息注入到carrier
             injector.inject(span.context(), carrier);
         }
 
 
-        if (span.isNoop()){
+        if (span.isNoop()) {
             return span;
         }
 
@@ -73,10 +72,16 @@ final class DubboTracingHandler {
 
         // Ensure user-code can read the current trace context
         try (Tracer.SpanInScope ws = tracer.withSpanInScope(span)) {
-            if(kind==Span.Kind.CONSUMER || kind== Span.Kind.CLIENT) {
-                span.tag("args", StringUtils.toArgumentString(invocation.getArguments()));
-                span.tag("dubbo.url", invocation.getInvoker().getUrl().toFullString());
-                span.tag("component", "dubbo");
+            String url = invocation.getInvoker().getUrl().toFullString();
+            if (kind == Span.Kind.SERVER) {
+                if (url.indexOf("DubboInterface") > 0) {
+                    maybeTag(span, "tradecode", invocation.getArguments()[0].toString());
+                }
+            }
+            if (kind == Span.Kind.CLIENT) {
+                maybeTag(span, "args", StringUtils.toArgumentString(invocation.getArguments()));
+                maybeTag(span, "dubbo.url", url);
+                maybeTag(span, "component", "dubbo");
             }
         }
         //设置远程服务端地址
@@ -90,7 +95,7 @@ final class DubboTracingHandler {
         return span.start();
     }
 
-    private String getName(Invocation invocation){
+    private String getName(Invocation invocation) {
 //        StringBuffer name = new StringBuffer().append(invocation.getInvoker().getInterface().getName())
 //                .append("::")
 //                .append(invocation.getMethodName());
@@ -98,7 +103,9 @@ final class DubboTracingHandler {
         return invocation.getInvoker().getInterface().getName();
     }
 
-    /** Creates a potentially noop span representing this request */
+    /**
+     * Creates a potentially noop span representing this request
+     */
     private Span nextSpan(TraceContextOrSamplingFlags extracted) {
         if (extracted.sampled() == null) { // Otherwise, try to make a new decision
             extracted = extracted.sampled(true);
@@ -108,34 +115,39 @@ final class DubboTracingHandler {
                 : tracer.nextSpan(extracted);
     }
 
+    static void maybeTag(Span span, String tag, String value) {
+        if (value != null) {
+            span.tag(tag, value);
+        }
+    }
+
     /**
      * Finishes the server span after assigning it tags according to the response or error.
-     *
+     * <p>
      * <p>This is typically called once the response headers are sent, and after the span is {@link
      * brave.Tracer.SpanInScope#close() no longer in scope}.
-     *
      */
     void handleSend(Result result, Throwable error, Span span) {
-        if (span.isNoop()){
+        if (span.isNoop()) {
             return;
         }
 
         // Ensure user-code can read the current trace context
         try (Tracer.SpanInScope ws = tracer.withSpanInScope(span)) {
-            if(result.getException()!=null) {
-                span.tag("error", "true");
-                span.tag("error-msg", result.getException().getMessage());
+            if (result.getException() != null) {
+                maybeTag(span, "error", "true");
+                maybeTag(span, "error-msg", result.getException().getMessage());
             }
-            if(error!=null) {
-                span.tag("error", "true");
-                span.tag("invoke-error", error.getMessage());
+            if (error != null) {
+                maybeTag(span, "error", "true");
+                maybeTag(span, "invoke-error", error.getMessage());
             }
-            if(kind==Span.Kind.CONSUMER || kind== Span.Kind.CLIENT) {
+            if (kind == Span.Kind.CLIENT) {
 //                for (String key : result.getAttachments().keySet()) {
 //                    span.tag("result-" + key, result.getAttachment(key));
 //                }
-                if(result.getValue()!=null) {
-                    span.tag("result", result.getValue().toString());
+                if (result.getValue() != null) {
+                    maybeTag(span, "result", result.getValue().toString());
                 }
             }
         } finally {
