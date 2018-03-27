@@ -68,6 +68,7 @@ AOP：
 ```
 >>注：aop的方式不存在跨应用的调用链，可以用来分析内部复杂业务逻辑场景，不建议在dao层使用，尽量在业务层使用
 
-    TODO
-    1.后续看情况是否可以修改支持现有socket接口
-    2.调研http客户端的调用模式，增加支持
+HTTP客户端：原生的http调用方式，参考test里的demo
+
+rabbitmq：提供了RabbitmqTracingHandler
+
