@@ -8,6 +8,7 @@ import brave.propagation.TraceContextOrSamplingFlags;
 import com.alibaba.dubbo.common.utils.StringUtils;
 import com.alibaba.dubbo.rpc.Invocation;
 import com.alibaba.dubbo.rpc.Result;
+import com.alibaba.dubbo.rpc.RpcContext;
 import zipkin2.Endpoint;
 
 /**
@@ -73,23 +74,20 @@ final class DubboTracingHandler {
         // Ensure user-code can read the current trace context
         try (Tracer.SpanInScope ws = tracer.withSpanInScope(span)) {
             String url = invocation.getInvoker().getUrl().toFullString();
-            if (kind == Span.Kind.SERVER) {
-                if (url.indexOf("DubboInterface") > 0) {
-                    maybeTag(span, "tradecode", invocation.getArguments()[0].toString());
-                }
-            }
-            if (kind == Span.Kind.CLIENT) {
+//            if (kind == Span.Kind.CLIENT) {
                 maybeTag(span, "args", StringUtils.toArgumentString(invocation.getArguments()));
                 maybeTag(span, "dubbo.url", url);
                 maybeTag(span, "component", "dubbo");
-            }
+//            }
         }
-        //设置远程服务端地址
+
+        //设置远程通讯端地址
         Endpoint.Builder remoteEndpoint = Endpoint.newBuilder()
-//                .serviceName(invocation.getMethodName())
-//                .ip(RpcContext.getContext().getRemoteAddressString());
-                .ip(invocation.getInvoker().getUrl().getIp())
-                .port(invocation.getInvoker().getUrl().getPort());
+                .serviceName(RpcContext.getContext().getUrl().getParameter("application","defualt-app"))
+                .ip(RpcContext.getContext().getRemoteHost())
+                .port(RpcContext.getContext().getRemotePort());
+//                .ip(invocation.getInvoker().getUrl().getIp())
+//                .port(invocation.getInvoker().getUrl().getPort());
         span.remoteEndpoint(remoteEndpoint.build());
 
         return span.start();
@@ -100,7 +98,17 @@ final class DubboTracingHandler {
 //                .append("::")
 //                .append(invocation.getMethodName());
 //        return name.toString();
-        return invocation.getInvoker().getInterface().getName();
+        String name = invocation.getInvoker().getInterface().getSimpleName();
+        if("DubboInterface".equals(name)){
+            try {
+                return invocation.getArguments()[0].toString();
+            }
+            catch (Exception e){
+                return name;
+            }
+        }
+
+        return name;
     }
 
     /**
@@ -115,7 +123,7 @@ final class DubboTracingHandler {
                 : tracer.nextSpan(extracted);
     }
 
-    static void maybeTag(Span span, String tag, String value) {
+    private static void maybeTag(Span span, String tag, String value) {
         if (value != null) {
             span.tag(tag, value);
         }
@@ -142,14 +150,15 @@ final class DubboTracingHandler {
                 maybeTag(span, "error", "true");
                 maybeTag(span, "invoke-error", error.getMessage());
             }
-            if (kind == Span.Kind.CLIENT) {
+//            if (kind == Span.Kind.CLIENT) {
 //                for (String key : result.getAttachments().keySet()) {
 //                    span.tag("result-" + key, result.getAttachment(key));
 //                }
+
                 if (result.getValue() != null) {
                     maybeTag(span, "result", result.getValue().toString());
                 }
-            }
+//            }
         } finally {
             span.finish();
         }

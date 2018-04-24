@@ -6,7 +6,7 @@
 
     <groupId>com.jcfc</groupId>
     <artifactId>microservice-tracer</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.2</version>
     <packaging>jar</packaging>
 
     <name>microservice-tracer</name>
@@ -83,11 +83,16 @@
             <artifactId>brave-instrumentation-servlet</artifactId>
             <version>4.12.0</version>
         </dependency>
-        <!--<dependency>-->
-            <!--<groupId>io.zipkin.brave</groupId>-->
-            <!--<artifactId>brave-instrumentation-httpclient</artifactId>-->
-            <!--<version>4.12.0</version>-->
-        <!--</dependency>-->
+        <dependency>
+            <groupId>io.zipkin.brave</groupId>
+            <artifactId>brave-instrumentation-httpclient</artifactId>
+            <version>4.12.0</version>
+        </dependency>
+        <dependency>
+            <groupId>io.zipkin.brave</groupId>
+            <artifactId>brave-instrumentation-spring-web</artifactId>
+            <version>4.12.0</version>
+        </dependency>
 
 
         <!-- 日志 -->
@@ -141,11 +146,12 @@
             <scope>provided</scope>
         </dependency>
 
-        <!--<dependency>-->
-            <!--<groupId>org.apache.httpcomponents</groupId>-->
-            <!--<artifactId>httpclient</artifactId>-->
-            <!--<version>4.5.4</version>-->
-        <!--</dependency>-->
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <version>4.5.4</version>
+            <scope>provided</scope>
+        </dependency>
 
 
         <dependency>

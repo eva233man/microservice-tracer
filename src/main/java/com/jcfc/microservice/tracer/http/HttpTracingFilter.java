@@ -7,6 +7,7 @@ import brave.http.HttpServerHandler;
 import brave.http.HttpTracing;
 import brave.propagation.Propagation;
 import brave.propagation.TraceContext;
+import com.alibaba.fastjson.JSON;
 import com.jcfc.microservice.tracer.TracerManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,8 +83,11 @@ public class HttpTracingFilter implements Filter {
             span.tag("peer.address" , request.getRemoteAddr());
             span.tag("peer.port" , Integer.toString(request.getRemotePort()));
             span.tag("component", "http");
+            span.tag("args", JSON.toJSONString(request.getParameterMap()));
 
             chain.doFilter(httpRequest, httpResponse); // any downstream filters see Tracer.currentSpan
+
+            span.tag("http.status", Integer.toString(httpResponse.getStatus()));
         } catch (IOException | ServletException | RuntimeException | Error e) {
             error = e;
             span.tag("error", "true");

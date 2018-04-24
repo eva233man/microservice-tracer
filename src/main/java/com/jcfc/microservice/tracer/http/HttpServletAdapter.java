@@ -25,6 +25,7 @@ public class HttpServletAdapter
     public boolean parseClientAddress(HttpServletRequest req, Endpoint.Builder builder) {
         if (builder.parseIp(req.getHeader("X-Forwarded-For")) || builder.parseIp(req.getRemoteAddr())) {
             builder.port(req.getRemotePort());
+            builder.serviceName(req.getHeader("Referer"));
             return true;
         }
         return false;

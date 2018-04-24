@@ -3,6 +3,8 @@ package com.example;
 import brave.Span;
 import brave.Tracer;
 import com.jcfc.microservice.tracer.http.HttpRequestTracingHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -16,6 +18,7 @@ import java.util.Map;
  */
 
 public class HttpRequestDemo {
+    private static final Logger logger = LoggerFactory.getLogger(HttpRequestDemo.class);
 
     private final static HttpRequestTracingHandler handler = new HttpRequestTracingHandler();
 
@@ -35,10 +38,14 @@ public class HttpRequestDemo {
         connection.setRequestProperty("Accept-Charset", "utf-8");
         connection.setRequestProperty("contentType", "utf-8");
 
+        logger.debug("ceshi11");
+
         Span httpclientSpan = handler.handle(connection, param);
         Throwable error = null;
         try (Tracer.SpanInScope ws = handler.getTracer().withSpanInScope(httpclientSpan)) {
             connection.connect();
+            logger.debug("ceshi33");
+
             in = new BufferedReader(new InputStreamReader(
                     connection.getInputStream(), "UTF-8"));
             String line;
@@ -55,6 +62,7 @@ public class HttpRequestDemo {
             //we have a synchronous response, so we can finish the span
             handler.handleSend(result, error, httpclientSpan);
         }
+        logger.debug("ceshi22");
 
 
         return result;
