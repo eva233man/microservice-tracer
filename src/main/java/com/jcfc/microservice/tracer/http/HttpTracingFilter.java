@@ -7,7 +7,6 @@ import brave.http.HttpServerHandler;
 import brave.http.HttpTracing;
 import brave.propagation.Propagation;
 import brave.propagation.TraceContext;
-import com.alibaba.fastjson.JSON;
 import com.jcfc.microservice.tracer.TracerManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,7 +14,9 @@ import org.slf4j.LoggerFactory;
 import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.PrintWriter;
 
 /**
  * 基于brave实现的zipkin的filter，在http协议调用时使用
@@ -56,16 +57,12 @@ public class HttpTracingFilter implements Filter {
 
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
-//        tracing = TracerManager.getTracing();
-
-//        tracingFilter = TracingFilter.create(tracing);
-//        tracingFilter.init(filterConfig);
     }
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
-        HttpServletRequest httpRequest = (HttpServletRequest) request;
-        HttpServletResponse httpResponse = servlet.httpResponse(response);
+//        HttpServletRequest httpRequest = (HttpServletRequest) request;
+//        HttpServletResponse httpResponse = servlet.httpResponse(response);
 
         // Prevent duplicate spans for the same request
         if (request.getAttribute("TracingFilter") != null) {
@@ -74,8 +71,10 @@ public class HttpTracingFilter implements Filter {
         }
 
         request.setAttribute("TracingFilter", "true");
+        HttpServletRequest requestWrapper = new ReaderHttpServletRequestWrapper((HttpServletRequest) request);
+        ReaderHttpServletResponseWrapper responseWrapper = new ReaderHttpServletResponseWrapper((HttpServletResponse) response);
 
-        Span span = handler.handleReceive(extractor, httpRequest);
+        Span span = handler.handleReceive(extractor, requestWrapper);
         Throwable error = null;
         try (Tracer.SpanInScope ws = tracer.withSpanInScope(span)) {
             span.tag("http.url" , request.getLocalAddr());
@@ -83,22 +82,52 @@ public class HttpTracingFilter implements Filter {
             span.tag("peer.address" , request.getRemoteAddr());
             span.tag("peer.port" , Integer.toString(request.getRemotePort()));
             span.tag("component", "http");
-            span.tag("args", JSON.toJSONString(request.getParameterMap()));
 
-            chain.doFilter(httpRequest, httpResponse); // any downstream filters see Tracer.currentSpan
+            //处理args
+            if("POST".equalsIgnoreCase(requestWrapper.getMethod()) || "GET".equalsIgnoreCase(requestWrapper.getMethod())) {
+                String args = this.getBodyString(requestWrapper.getReader());
+                span.tag("args", args);
+                chain.doFilter(requestWrapper, responseWrapper); // any downstream filters see Tracer.currentSpan
+                String result = new String(responseWrapper.getResponseData());
+                span.tag("result", result);
 
-            span.tag("http.status", Integer.toString(httpResponse.getStatus()));
+                response.setContentLength(-1);//解决输出一部分的问题
+                response.setCharacterEncoding(request.getCharacterEncoding());
+                //输出到response
+                PrintWriter out = response.getWriter();
+                out.write(result);
+                out.flush();
+                out.close();
+            }
+            else {
+                chain.doFilter(requestWrapper, responseWrapper); // any downstream filters see Tracer.currentSpan
+            }
+
         } catch (IOException | ServletException | RuntimeException | Error e) {
             error = e;
             span.tag("error", "true");
             throw e;
         } finally {
-            if (servlet.isAsync(httpRequest)) { // we don't have the actual response, handle later
-                servlet.handleAsync(handler, httpRequest, span);
+            if (servlet.isAsync(requestWrapper)) { // we don't have the actual response, handle later
+                servlet.handleAsync(handler, requestWrapper, span);
             } else { // we have a synchronous response, so we can finish the span
-                handler.handleSend(httpResponse, error, span);
+                handler.handleSend(responseWrapper, error, span);
             }
         }
+    }
+
+    private String getBodyString(BufferedReader br) {
+        String inputLine;
+        StringBuilder str = new StringBuilder();
+        try {
+            while ((inputLine = br.readLine()) != null) {
+                str.append(inputLine);
+            }
+            br.close();
+        } catch (IOException e) {
+            logger.error("HttpTracingFilter::getBodyString throws IOException: " + e.getMessage());
+        }
+        return str.toString();
     }
 
     @Override
