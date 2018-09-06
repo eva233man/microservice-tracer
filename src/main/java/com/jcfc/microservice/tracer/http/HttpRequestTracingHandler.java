@@ -45,7 +45,7 @@ public class HttpRequestTracingHandler {
     private final TraceContext.Extractor<URLConnection> extractor;
 
     public HttpRequestTracingHandler(){
-        Tracing tracing = TracerManager.getTracing();
+        Tracing tracing = TracerManager.getInstance().getTracing();
         tracer = tracing.tracer();
         injector = tracing.propagation().injector(SETTER);
         extractor = tracing.propagation().extractor(GETTER);
@@ -69,10 +69,10 @@ public class HttpRequestTracingHandler {
 
         // Ensure user-code can read the current trace context
         try (Tracer.SpanInScope ws = tracer.withSpanInScope(span)) {
-            span.tag("args", args);
-            span.tag("http.url", connection.getURL().toString());
+            maybeTag(span,"args", args);
+            maybeTag(span,"http.url", connection.getURL().toString());
 //            span.tag("component", "http");
-            span.tag("component-client", "httprequest");
+            maybeTag(span,"component-client", "httprequest");
         }
         //设置远程服务端地址
         Endpoint.Builder remoteEndpoint = Endpoint.newBuilder()
@@ -110,12 +110,18 @@ public class HttpRequestTracingHandler {
         // Ensure user-code can read the current trace context
         try (Tracer.SpanInScope ws = tracer.withSpanInScope(span)) {
             if (error != null) {
-                span.tag("error", "true");
-                span.tag("httprequest-error", error.getMessage());
+                maybeTag(span,"error", "true");
+                maybeTag(span,"httprequest-error", error.getMessage());
             }
-            span.tag("result", JSON.toJSONString(object));
+            maybeTag(span,"result", JSON.toJSONString(object));
         } finally {
             span.finish();
+        }
+    }
+
+    private static void maybeTag(Span span, String tag, String value) {
+        if (value != null && value.length()<100000) {
+            span.tag(tag, value);
         }
     }
 

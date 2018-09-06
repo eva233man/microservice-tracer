@@ -21,7 +21,7 @@ public class ReaderHttpServletRequestWrapper extends HttpServletRequestWrapper {
     public ReaderHttpServletRequestWrapper(HttpServletRequest request)
             throws IOException {
         super(request);
-        body = StreamUtil.readBytes(request.getReader(), "UTF-8");
+        body = StreamUtil.readBytes(request.getReader(), request.getCharacterEncoding());
     }
 
     @Override

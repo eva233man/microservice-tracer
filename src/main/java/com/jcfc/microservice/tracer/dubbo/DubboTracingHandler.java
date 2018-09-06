@@ -124,7 +124,7 @@ final class DubboTracingHandler {
     }
 
     private static void maybeTag(Span span, String tag, String value) {
-        if (value != null) {
+        if (value != null && value.length()<100000) {
             span.tag(tag, value);
         }
     }

@@ -50,7 +50,7 @@ public class RabbitTracingHandler {
     private final TraceContext.Extractor<RabbitmqMessage> extractor;
     private final Tracer tracer;
     private final Span.Kind kind;
-    private final Tracing tracing = TracerManager.getTracing();
+    private final Tracing tracing = TracerManager.getInstance().getTracing();
 
 
     public RabbitTracingHandler(Span.Kind kind) {
@@ -98,8 +98,8 @@ public class RabbitTracingHandler {
             if (kind == Span.Kind.PRODUCER) {
                 span.tag("produce-msg", message.getMessage());
             }
-            span.tag("component", "rabbitmq");
-            span.tag("rabbit.channel", message.getBrokeUrl());
+            maybeTag(span, "component", "rabbitmq");
+            maybeTag(span, "rabbit.channel", message.getBrokeUrl());
         }
         //设置远程服务端地址
         Endpoint.Builder remoteEndpoint = Endpoint.newBuilder()
@@ -135,15 +135,20 @@ public class RabbitTracingHandler {
         // Ensure user-code can read the current trace context
         try (Tracer.SpanInScope ws = tracer.withSpanInScope(span)) {
             if (kind == Span.Kind.CONSUMER) {
-                span.tag("consume-msg", message.getMessage());
+                maybeTag(span, "consume-msg", message.getMessage());
             }
             if (error != null) {
-                span.tag("error", "true");
-                span.tag("mq-error", error.getMessage());
+                maybeTag(span, "error", "true");
+                maybeTag(span, "mq-error", error.getMessage());
             }
         } finally {
             span.finish();
         }
     }
 
+    private static void maybeTag(Span span, String tag, String value) {
+        if (value != null && value.length()<100000) {
+            span.tag(tag, value);
+        }
+    }
 }

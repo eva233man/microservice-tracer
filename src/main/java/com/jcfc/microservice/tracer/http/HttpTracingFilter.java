@@ -17,6 +17,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 
 /**
  * 基于brave实现的zipkin的filter，在http协议调用时使用
@@ -37,6 +38,7 @@ public class HttpTracingFilter implements Filter {
                     return "HttpServletRequest::getHeader";
                 }
             };
+    static final HttpServletAdapter ADAPTER = new HttpServletAdapter();
 
     private Tracing tracing;
 
@@ -46,11 +48,11 @@ public class HttpTracingFilter implements Filter {
     private final TraceContext.Extractor<HttpServletRequest> extractor;
 
     public HttpTracingFilter() {
-        tracing = TracerManager.getTracing();
+        tracing = TracerManager.getInstance().getTracing();
         HttpTracing httpTracing = HttpTracing.create(tracing);
 
         tracer = httpTracing.tracing().tracer();
-        handler = HttpServerHandler.create(httpTracing, new HttpServletAdapter());
+        handler = HttpServerHandler.create(httpTracing, ADAPTER);
         extractor = httpTracing.tracing().propagation().extractor(GETTER);
     }
 
@@ -61,8 +63,8 @@ public class HttpTracingFilter implements Filter {
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
-//        HttpServletRequest httpRequest = (HttpServletRequest) request;
-//        HttpServletResponse httpResponse = servlet.httpResponse(response);
+        HttpServletRequest httpRequest = (HttpServletRequest) request;
+        HttpServletResponse httpResponse = servlet.httpResponse(response);
 
         // Prevent duplicate spans for the same request
         if (request.getAttribute("TracingFilter") != null) {
@@ -72,27 +74,42 @@ public class HttpTracingFilter implements Filter {
 
         request.setAttribute("TracingFilter", "true");
         HttpServletRequest requestWrapper = new ReaderHttpServletRequestWrapper((HttpServletRequest) request);
-        ReaderHttpServletResponseWrapper responseWrapper = new ReaderHttpServletResponseWrapper((HttpServletResponse) response);
+        ReaderHttpServletResponseWrapper responseWrapper = new ReaderHttpServletResponseWrapper((HttpServletResponse) response, request.getCharacterEncoding());
 
         Span span = handler.handleReceive(extractor, requestWrapper);
+
+        // Add attributes for explicit access to customization or span context
+        request.setAttribute(TraceContext.class.getName(), span.context());
+
         Throwable error = null;
         try (Tracer.SpanInScope ws = tracer.withSpanInScope(span)) {
-            span.tag("http.url" , request.getLocalAddr());
-            span.tag("http.port" , Integer.toString(request.getLocalPort()));
-            span.tag("peer.address" , request.getRemoteAddr());
-            span.tag("peer.port" , Integer.toString(request.getRemotePort()));
-            span.tag("component", "http");
+            maybeTag(span,"http.url" , request.getLocalAddr());
+            maybeTag(span,"http.port" , Integer.toString(request.getLocalPort()));
+            maybeTag(span,"peer.address" , request.getRemoteAddr());
+            maybeTag(span,"peer.port" , Integer.toString(request.getRemotePort()));
+            maybeTag(span,"component", "http");
 
             //处理args
             if("POST".equalsIgnoreCase(requestWrapper.getMethod()) || "GET".equalsIgnoreCase(requestWrapper.getMethod())) {
                 String args = this.getBodyString(requestWrapper.getReader());
-                span.tag("args", args);
+                if("utf-8".equalsIgnoreCase(requestWrapper.getCharacterEncoding())) {
+                    maybeTag(span, "args", args);
+                }
+                else {
+                    maybeTag(span, "args", this.getUtfString(args));
+                }
                 chain.doFilter(requestWrapper, responseWrapper); // any downstream filters see Tracer.currentSpan
-                String result = new String(responseWrapper.getResponseData());
-                span.tag("result", result);
+//                logger.error("http-tracer: charset "+requestWrapper.getCharacterEncoding());
+                String result = new String(responseWrapper.getResponseData(), requestWrapper.getCharacterEncoding());
+//                if("utf-8".equalsIgnoreCase(requestWrapper.getCharacterEncoding())) {
+                maybeTag(span, "result", result);
+//                }
+//                else {
+//                    maybeTag(span, "result", this.getUtfString(result));
+//                }
 
                 response.setContentLength(-1);//解决输出一部分的问题
-                response.setCharacterEncoding(request.getCharacterEncoding());
+                response.setCharacterEncoding(requestWrapper.getCharacterEncoding());
                 //输出到response
                 PrintWriter out = response.getWriter();
                 out.write(result);
@@ -100,7 +117,7 @@ public class HttpTracingFilter implements Filter {
                 out.close();
             }
             else {
-                chain.doFilter(requestWrapper, responseWrapper); // any downstream filters see Tracer.currentSpan
+                chain.doFilter(request, response); // any downstream filters see Tracer.currentSpan
             }
 
         } catch (IOException | ServletException | RuntimeException | Error e) {
@@ -114,6 +131,16 @@ public class HttpTracingFilter implements Filter {
                 handler.handleSend(responseWrapper, error, span);
             }
         }
+    }
+
+    private String getUtfString(String str){
+        String utfString = null;
+        try {
+            utfString = new String(str.getBytes(), "utf-8");
+        } catch (UnsupportedEncodingException e) {
+            logger.error("HttpTracingFilter::getUtfString throws IOException: " + e.getMessage());
+        }
+        return utfString;
     }
 
     private String getBodyString(BufferedReader br) {
@@ -135,4 +162,9 @@ public class HttpTracingFilter implements Filter {
         tracing.close();
     }
 
+    private static void maybeTag(Span span, String tag, String value) {
+        if (value != null && value.length()<100000) {
+            span.tag(tag, value);
+        }
+    }
 }

@@ -24,7 +24,7 @@ public class DubboProviderTracingFilter implements Filter {
     private final DubboTracingHandler handler;
 
     public DubboProviderTracingFilter(){
-        Tracing tracing = TracerManager.getTracing();
+        Tracing tracing = TracerManager.getInstance().getTracing();
         extractor = tracing.propagation().extractor(DubboTracingHandler.GETTER);
         injector = tracing.propagation().injector(DubboTracingHandler.SETTER);
         tracer = tracing.tracer();

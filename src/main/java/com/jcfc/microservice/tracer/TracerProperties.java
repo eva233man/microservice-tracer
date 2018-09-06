@@ -24,6 +24,7 @@ class TracerProperties {
 	static private final String DEFAULT_CONFIGURATION_FILE = "tracer.properties";
 
 	private static Properties props;
+	public static boolean isLoad = false;
 	static{
 		loadProps();
 	}
@@ -32,9 +33,10 @@ class TracerProperties {
 		props = new Properties();
 		InputStream in = null;
 		try {
-					in = TracerProperties.class.getClassLoader().getResourceAsStream(DEFAULT_CONFIGURATION_FILE);
-					props.load(in);
-		} catch (FileNotFoundException e) {
+			in = TracerProperties.class.getClassLoader().getResourceAsStream(DEFAULT_CONFIGURATION_FILE);
+			props.load(in);
+			isLoad = true;
+		} catch (FileNotFoundException | NullPointerException e) {
 			logger.error("tracer.properties文件未找到");
 		} catch (IOException e) {
 			logger.error("出现IOException");

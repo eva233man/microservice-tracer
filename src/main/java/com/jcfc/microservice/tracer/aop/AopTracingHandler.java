@@ -43,9 +43,9 @@ final class AopTracingHandler {
 
         // Ensure user-code can read the current trace context
         try (Tracer.SpanInScope ws = tracer.withSpanInScope(span)) {
-            span.tag("args", StringUtils.toArgumentString(joinPoint.getArgs()));
-            span.tag("aop.url", joinPoint.toString());
-            span.tag("component", "aop");
+            maybeTag(span, "args", StringUtils.toArgumentString(joinPoint.getArgs()));
+            maybeTag(span, "aop.url", joinPoint.toString());
+            maybeTag(span, "component", "aop");
         }
         //设置远程服务端地址
         Endpoint.Builder remoteEndpoint = Endpoint.newBuilder()
@@ -86,12 +86,18 @@ final class AopTracingHandler {
         // Ensure user-code can read the current trace context
         try (Tracer.SpanInScope ws = tracer.withSpanInScope(span)) {
             if (error != null) {
-                span.tag("error", "true");
-                span.tag("invoke-error", error.getMessage());
+                maybeTag(span, "error", "true");
+                maybeTag(span, "invoke-error", error.getMessage());
             }
-            span.tag("result", JSON.toJSONString(object));
+            maybeTag(span,"result", JSON.toJSONString(object));
         } finally {
             span.finish();
+        }
+    }
+
+    private static void maybeTag(Span span, String tag, String value) {
+        if (value != null && value.length()<100000) {
+            span.tag(tag, value);
         }
     }
 

@@ -22,7 +22,7 @@ public class AopTracingFilter {
     private final AopTracingHandler handler;
 
     public AopTracingFilter(){
-        Tracing tracing = TracerManager.getTracing();
+        Tracing tracing = TracerManager.getInstance().getTracing();
         tracer = tracing.tracer();
         handler = new AopTracingHandler(tracer, tracing.currentTraceContext());
     }

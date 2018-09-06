@@ -23,7 +23,7 @@ public class TracingHttpClientBuilder {
     private HttpTracing httpTracing;
 
     public TracingHttpClientBuilder(){
-        Tracing tracing = TracerManager.getTracing();
+        Tracing tracing = TracerManager.getInstance().getTracing();
         httpTracing = HttpTracing.create(tracing);
     }
 
